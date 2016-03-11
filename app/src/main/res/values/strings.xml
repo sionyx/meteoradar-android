@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">MeteoRadar</string>
+    <string name="action_settings">Settings</string>
+    <string name="cannot_load_radars">Не удалось загрузить список радаров</string>
+    <string name="cannot_load_map">Не удалось загрузить карту</string>
+    <string name="cannot_load_radar_info">Не удалось загрузить список изображений</string>
+    <string name="radar_info_empty">Пустой список изображений</string>
+    <string name="loading_radars">Загрузка списка радаров...</string>
+    <string name="loading_map">Загрузка карты...</string>
+</resources>
