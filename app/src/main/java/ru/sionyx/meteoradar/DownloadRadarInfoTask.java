@@ -29,20 +29,32 @@ public class DownloadRadarInfoTask extends DownloadJsonTask {
             JSONArray mapsJson = radarInfoJson.getJSONArray("maps");
 
             radarInfo = new RadarInfo();
-            radarInfo.Maps = new Map[mapsJson.length()];
+            radarInfo.maps = new Map[mapsJson.length()];
 
             for (int i=0; i < mapsJson.length(); i++)
             {
                 try {
                     JSONObject radarJson = mapsJson.getJSONObject(i);
-                    radarInfo.Maps[i] = new Map();
+                    radarInfo.maps[i] = new Map();
                     // Pulling items from the array
-                    radarInfo.Maps[i].File = radarJson.getString("file");
+                    radarInfo.maps[i].File = radarJson.getString("file");
 
                 } catch (JSONException e) {
                     radarInfo = null;
                     break;
                 }
+            }
+
+            try {
+                JSONObject sourceJson = radarInfoJson.getJSONObject("source");
+                if (sourceJson != null) {
+                    radarInfo.source = new MapSource();
+                    radarInfo.source.title = sourceJson.getString("title");
+                    radarInfo.source.link = sourceJson.getString("url");
+                }
+            }
+            catch (Exception e) {
+                radarInfo.source = null;
             }
 
         } catch (Exception e) {

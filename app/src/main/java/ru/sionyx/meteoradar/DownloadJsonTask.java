@@ -34,7 +34,8 @@ public class DownloadJsonTask extends AsyncTask<String, Void, String> {
             jsonString = sb.toString();
             is.close();
 
-
+            // remove any number of BOMs
+            jsonString = jsonString.replace("\uFEFF", "");
 
         } catch (Exception e) {
             Log.e("Error", e.getMessage());
