@@ -1,4 +1,4 @@
-package ru.sionyx.meteoradar;
+package ru.sionyx.meteoradar.tasks;
 
 import android.os.AsyncTask;
 import android.util.Log;

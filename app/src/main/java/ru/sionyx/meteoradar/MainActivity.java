@@ -1,6 +1,6 @@
 package ru.sionyx.meteoradar;
 
-import android.accounts.Account;
+
 import android.accounts.AccountManager;
 import android.app.ProgressDialog;
 import android.content.Context;
@@ -25,17 +25,16 @@ import com.google.android.gms.appindexing.Action;
 import com.google.android.gms.appindexing.AppIndex;
 import com.google.android.gms.common.api.GoogleApiClient;
 
-import java.util.Calendar;
-import java.util.Date;
-import java.util.GregorianCalendar;
-import java.util.HashMap;
-import java.util.TimeZone;
-
 import it.sephiroth.android.library.imagezoom.ImageViewTouch;
 import it.sephiroth.android.library.imagezoom.ImageViewTouchBase;
+import ru.sionyx.meteoradar.ViewModels.MapsViewModel;
+import ru.sionyx.meteoradar.ViewModels.MapsViewModelDelegate;
+import ru.sionyx.meteoradar.ViewModels.RadarsViewModel;
+import ru.sionyx.meteoradar.ViewModels.RadarsViewModelDelegate;
 
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity
+        implements RadarsViewModelDelegate, MapsViewModelDelegate {
     ProgressDialog progressDialog;
     FloatingActionButton refreshButton;
     Toolbar toolbar;
@@ -43,10 +42,6 @@ public class MainActivity extends AppCompatActivity {
     ImageViewTouch radarZoomable;
     TextView sourceLink;
 
-    Radar[] radars;
-    int currentRadar;
-    RadarInfo radarInfo;
-    HashMap<String, Bitmap> imagesCache;
     int animationFrame;
 
     Handler timerHandler;
@@ -76,13 +71,16 @@ public class MainActivity extends AppCompatActivity {
         refreshButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                reloadImage(radars[currentRadar]);
+                if (RadarsViewModel.shared().radars == null) {
+                    RadarsViewModel.shared().loadSettings();
+                }
+                else {
+                    reloadImage(RadarsViewModel.shared().radar);
+                }
             }
         });
 
         sourceLink = (TextView)findViewById(R.id.sourceLink);
-
-        imagesCache = new HashMap<>();
 
         timerHandler = new Handler();
         timerRunnable = new Runnable() {
@@ -93,6 +91,22 @@ public class MainActivity extends AppCompatActivity {
             }
         };
 
+        // Init View Models
+        RadarsViewModel.shared().accountManager = (AccountManager)getSystemService(ACCOUNT_SERVICE);
+        RadarsViewModel.shared().delegate = this;
+        MapsViewModel.shared().delegate = this;
+
+        // Start
+        if (RadarsViewModel.shared().radars == null) {
+            RadarsViewModel.shared().loadSettings();
+        }
+        else if (MapsViewModel.shared().radarInfo == null) {
+            reloadImage(RadarsViewModel.shared().radar);
+        }
+        else {
+            mapsLoaded();
+        }
+
         // ATTENTION: This was auto-generated to implement the App Indexing API.
         // See https://g.co/AppIndexing/AndroidStudio for more information.
         client = new GoogleApiClient.Builder(this).addApi(AppIndex.API).build();
@@ -100,66 +114,117 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        String message = getResources().getString(R.string.loading_radars);
-        progressDialog.setMessage(message);
-        progressDialog.show();
 
-        AccountManager manager = (AccountManager) getSystemService(ACCOUNT_SERVICE);
-        Account[] list = manager.getAccounts();
-        String accountHash = (list.length > 0) ? hash.sha1(list[0].name) : "unknown";
-
-        Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-        String sign = String.format("meteo%02d%02d", calendar.get(Calendar.MONTH) + 1, calendar.get(Calendar.DAY_OF_MONTH));
-        String signHash = hash.sha1(sign);
-
-        String url = String.format("http://meteo.bcr.by/auth.php?hash=%s&id=%s", accountHash, signHash);
-
-        DownloadSettingsTask downloadSettingsTask = new DownloadSettingsTask(this, menu);
-        downloadSettingsTask.execute(url);
+        if (RadarsViewModel.shared().radars != null) {
+            for (int i = 0; i < RadarsViewModel.shared().radars.length; i++) {
+                menu.add(0, i, Menu.NONE, RadarsViewModel.shared().radars[i].desc);
+            }
+        }
 
         return true;
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        if (currentRadar == item.getItemId()) {
-            return true;
-        }
+        int index = item.getItemId();
 
-        imagesCache.clear();
-        currentRadar = item.getItemId();
-        if (radars != null && currentRadar < radars.length) {
-            SaveCurrentRadar(radars[currentRadar]);
-            reloadImage(radars[currentRadar]);
+        if (RadarsViewModel.shared().radars != null && index < RadarsViewModel.shared().radars.length) {
+            Radar selectedRadar = RadarsViewModel.shared().radars[index];
+            if (selectedRadar == RadarsViewModel.shared().radar) {
+                return true;
+            }
+
+            MapsViewModel.shared().DropCache();
+            RadarsViewModel.shared().radar = selectedRadar;
+            SaveCurrentRadar(selectedRadar);
+            reloadImage(selectedRadar);
         }
         return true;
     }
 
-    public void onSettingsLoaded(Radar[] radars) {
+    //region MapsViewModelDelegate
+
+    public void radarInfoLoaded(RadarInfo radarInfo) {
+        if (radarInfo.maps.length == 0) {
+            progressDialog.hide();
+            Snackbar.make(radarZoomable, R.string.radar_info_empty, Snackbar.LENGTH_LONG)
+                    .setAction("Action", null).show();
+        }
+
+        if (radarInfo.source != null) {
+            sourceLink.setText(Html.fromHtml(String.format("Источник: <a href='%s'>%s</a>", radarInfo.source.link, radarInfo.source.title)));
+        }
+    }
+
+    public void radarInfoNotLoaded(String error) {
         progressDialog.hide();
-        this.radars = radars;
+        String message = String.format("%s: %s", getResources().getString(R.string.cannot_load_radar_info), error);
+
+        Snackbar.make(radarZoomable, message, Snackbar.LENGTH_LONG)
+                .setAction("Action", null).show();
+    }
+
+    public void mapsLoaded() {
+        progressDialog.hide();
+        startAnimation();
+    }
+
+    public void mapsNotLoaded() {
+        progressDialog.hide();
+        Snackbar.make(radarZoomable, R.string.cannot_load_map, Snackbar.LENGTH_LONG)
+                .setAction("Action", null).show();
+    }
+
+    //endregion
+
+
+    //region RadarsViewModelDelegate
+
+    public void radarsStartLoading() {
+        String message = getResources().getString(R.string.loading_radars);
+        progressDialog.setMessage(message);
+        progressDialog.show();
+    }
+
+    public void radarsLoaded(Radar[] radars) {
+        progressDialog.hide();
+        invalidateOptionsMenu();
 
         if (radars.length > 0) {
-            currentRadar = 0;
+            Radar radar = RadarsViewModel.shared().radars[0];
 
             String currentRadarCode = LoadCurrentRadarCode();
-            for (int i = 0; i < radars.length; i++) {
-                if (radars[i].code.equals(currentRadarCode)) {
-                    currentRadar = i;
+            for (Radar r : radars) {
+                if (r.code.equals(currentRadarCode)) {
+                    radar = r;
                     break;
                 }
             }
 
-            reloadImage(radars[currentRadar]);
+            RadarsViewModel.shared().radar = radar;
+            reloadImage(radar);
         }
     }
 
-    public void onSettingsNotLoaded() {
+    public void radarsNotLoaded(String error) {
         progressDialog.hide();
         Snackbar.make(radarZoomable, R.string.cannot_load_radars, Snackbar.LENGTH_LONG)
                 .setAction("Action", null).show();
-        refreshButton.setEnabled(false);
     }
+
+    public void promoStartSending() {
+
+    }
+
+    public void promoSent() {
+
+    }
+
+    public void promoFailedToSend(String error) {
+
+    }
+
+    //endregion
 
 
     private void reloadImage(Radar radar) {
@@ -170,76 +235,15 @@ public class MainActivity extends AppCompatActivity {
         progressDialog.setMessage(message);
         progressDialog.show();
 
-        String link = String.format("http://meteo.bcr.by/req2.php?rad=%s", radar.code);
-
-        DownloadRadarInfoTask downloadRadarInfoTask = new DownloadRadarInfoTask(this, radar);
-        downloadRadarInfoTask.execute(link);
+        MapsViewModel.shared().loadMapImages(radar);
     }
 
-    public void onMapLoaded(Bitmap image, String filename) {
-        imagesCache.put(filename, image);
 
-        boolean finished = true;
-        for (int i = 0; i < radarInfo.maps.length; i++) {
-            if (!imagesCache.containsKey(radarInfo.maps[i].File)) {
-                finished = false;
-                break;
-            }
-        }
-
-        if (finished) {
-            progressDialog.hide();
-            startAnimation();
-        }
-    }
-
-    public void onMapNotLoaded(String filename) {
-        progressDialog.hide();
-        Snackbar.make(radarZoomable, R.string.cannot_load_map, Snackbar.LENGTH_LONG)
-                .setAction("Action", null).show();
-    }
-
-    public void onRadarInfoLoaded(Radar radar, RadarInfo radarInfo) {
-        if (radarInfo.maps.length == 0) {
-            progressDialog.hide();
-            Snackbar.make(radarZoomable, R.string.radar_info_empty, Snackbar.LENGTH_LONG)
-                    .setAction("Action", null).show();
-        }
-
-        this.radarInfo = radarInfo;
-
-        if (radarInfo.source != null) {
-            sourceLink.setText(Html.fromHtml(String.format("Источник: <a href='%s'>%s</a>", radarInfo.source.link, radarInfo.source.title)));
-        }
-
-        boolean started = false;
-        for (int i = 0; i < radarInfo.maps.length; i++) {
-            if (!imagesCache.containsKey(radarInfo.maps[i].File)) {
-                String link = String.format("http://meteo.bcr.by/%s/%s", radar.code, radarInfo.maps[i].File);
-
-                DownloadMapTask downloadMapTask = new DownloadMapTask(this, radarInfo.maps[i].File);
-                downloadMapTask.execute(link);
-
-                started = true;
-            }
-        }
-
-        if (!started) {
-            progressDialog.hide();
-            startAnimation();
-        }
-    }
-
-    public void onRadarInfoNotLoaded() {
-        progressDialog.hide();
-        Snackbar.make(radarZoomable, R.string.cannot_load_radar_info, Snackbar.LENGTH_LONG)
-                .setAction("Action", null).show();
-    }
 
     private void startAnimation() {
         animationFrame = 0;
         progressBar.setVisibility(View.VISIBLE);
-        progressBar.setMax(radarInfo.maps.length);
+        progressBar.setMax(MapsViewModel.shared().radarInfo.maps.length);
         timerHandler.post(timerRunnable);
     }
 
@@ -250,15 +254,14 @@ public class MainActivity extends AppCompatActivity {
 
     private int animateFrame() {
         progressBar.setProgress(animationFrame + 1);
-        String file = radarInfo.maps[animationFrame].File;
-        Bitmap img = imagesCache.get(file);
+        Bitmap img = MapsViewModel.shared().bitmapForIndex(animationFrame);
         if (img != null) {
             Matrix matrix = radarZoomable.getDisplayMatrix();
             radarZoomable.setImageBitmap(img, matrix, 1, 2);
         }
 
         animationFrame++;
-        if (animationFrame == radarInfo.maps.length) {
+        if (animationFrame == MapsViewModel.shared().radarInfo.maps.length) {
             animationFrame = 0;
             return 20;
         }

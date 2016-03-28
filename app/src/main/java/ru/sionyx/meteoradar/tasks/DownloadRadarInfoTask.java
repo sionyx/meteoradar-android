@@ -1,25 +1,36 @@
-package ru.sionyx.meteoradar;
+package ru.sionyx.meteoradar.tasks;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+
+import ru.sionyx.meteoradar.Map;
+import ru.sionyx.meteoradar.MapSource;
+import ru.sionyx.meteoradar.Radar;
+import ru.sionyx.meteoradar.RadarInfo;
 
 /**
  * Created by vadimbalasov on 02.03.16.
  */
 
 public class DownloadRadarInfoTask extends DownloadJsonTask {
-    MainActivity mainActivity;
-    Radar radar;
+    DownloadRadarInfoTaskDelegate _delegate;
+    Radar _radar;
 
-    public DownloadRadarInfoTask(MainActivity mainActivity, Radar radar) {
-        this.mainActivity = mainActivity;
-        this.radar = radar;
+    public DownloadRadarInfoTask(DownloadRadarInfoTaskDelegate delegate, Radar radar) {
+        _delegate = delegate;
+        _radar = radar;
     }
 
     protected void onPostExecute(String result) {
         if (result == null) {
-            mainActivity.onRadarInfoNotLoaded();
+            _delegate.onRadarInfoNotLoaded("request error");
+            return;
+        }
+
+        if (result.length() > 7 && result.substring(0, 7).equalsIgnoreCase("error: ")) {
+            _delegate.onRadarInfoNotLoaded(result.substring(7));
+            return;
         }
 
         RadarInfo radarInfo = null;
@@ -61,10 +72,10 @@ public class DownloadRadarInfoTask extends DownloadJsonTask {
             radarInfo = null;
         } finally {
             if (radarInfo != null) {
-                mainActivity.onRadarInfoLoaded(radar, radarInfo);
+                _delegate.onRadarInfoLoaded(_radar, radarInfo);
             }
             else {
-                mainActivity.onRadarInfoNotLoaded();
+                _delegate.onRadarInfoNotLoaded("JSON parse error");
             }
         }
 

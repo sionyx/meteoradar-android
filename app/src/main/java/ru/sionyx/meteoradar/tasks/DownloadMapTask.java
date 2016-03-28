@@ -1,4 +1,4 @@
-package ru.sionyx.meteoradar;
+package ru.sionyx.meteoradar.tasks;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -14,12 +14,12 @@ import java.net.URLConnection;
  * Created by vadimbalasov on 02.03.16.
  */
 public class DownloadMapTask extends AsyncTask<String, Void, Bitmap> {
-    MainActivity mainActivity;
-    String filename;
+    DownloadMapTaskDelegate _delegate;
+    String _filename;
 
-    public DownloadMapTask(MainActivity mainActivity, String filename) {
-        this.mainActivity = mainActivity;
-        this.filename = filename;
+    public DownloadMapTask(DownloadMapTaskDelegate delegate, String filename) {
+        _delegate = delegate;
+        _filename = filename;
     }
 
     protected Bitmap doInBackground(String... urls) {
@@ -45,10 +45,10 @@ public class DownloadMapTask extends AsyncTask<String, Void, Bitmap> {
 
     protected void onPostExecute(Bitmap result) {
         if (result != null) {
-            mainActivity.onMapLoaded(result, filename);
+            _delegate.onMapLoaded(result, _filename);
         }
         else {
-            mainActivity.onMapNotLoaded(filename);
+            _delegate.onMapNotLoaded(_filename);
         }
     }
 }

@@ -1,4 +1,4 @@
-package ru.sionyx.meteoradar;
+package ru.sionyx.meteoradar.tasks;
 
 import android.app.ProgressDialog;
 import android.graphics.Movie;
@@ -15,10 +15,9 @@ import java.net.URLConnection;
  */
 
 public class DownloadGifTask extends AsyncTask<String, Void, Movie> {
-    MainActivity mainActivity;
 
-    public DownloadGifTask(MainActivity mainActivity) {
-        this.mainActivity = mainActivity;
+    public DownloadGifTask() {
+
     }
 
     protected Movie doInBackground(String... urls) {

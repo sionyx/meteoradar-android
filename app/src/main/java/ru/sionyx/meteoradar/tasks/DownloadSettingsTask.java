@@ -1,4 +1,4 @@
-package ru.sionyx.meteoradar;
+package ru.sionyx.meteoradar.tasks;
 
 import android.os.AsyncTask;
 import android.util.Log;
@@ -14,22 +14,23 @@ import java.io.InputStreamReader;
 import java.net.URL;
 import java.net.URLConnection;
 
+import ru.sionyx.meteoradar.Radar;
+
 /**
  * Created by vadimbalasov on 01.03.16.
  */
 
 public class DownloadSettingsTask extends DownloadJsonTask {
-    MainActivity mainActivity;
-    Menu menu;
+    DownloadSettingsTaskDelegate _delegate;
 
-    public DownloadSettingsTask(MainActivity mainActivity, Menu menu) {
-        this.mainActivity = mainActivity;
-        this.menu = menu;
+    public DownloadSettingsTask(DownloadSettingsTaskDelegate delegate) {
+        _delegate = delegate;
     }
 
     protected void onPostExecute(String result) {
         if (result == null) {
-            mainActivity.onSettingsNotLoaded();
+            _delegate.onSettingsNotLoaded();
+            return;
         }
 
         Radar[] radars = null;
@@ -38,7 +39,6 @@ public class DownloadSettingsTask extends DownloadJsonTask {
             JSONObject settingsJson = new JSONObject(result);
             JSONArray radarsJson = settingsJson.getJSONArray("radars");
 
-            menu.clear();
             radars = new Radar[radarsJson.length()];
 
             for (int i=0; i < radarsJson.length(); i++)
@@ -50,24 +50,19 @@ public class DownloadSettingsTask extends DownloadJsonTask {
                     radars[i].code = radarJson.getString("code");
                     radars[i].desc = radarJson.getString("desc");
                     radars[i].interval = radarJson.getString("interval");
-
-                    menu.add(0, i, Menu.NONE, radars[i].desc);
                 } catch (JSONException e) {
                     // Oops
                 }
             }
 
         } catch (Exception e) {
-            Log.e("Error", e.getMessage());
-            e.printStackTrace();
         } finally {
             if (radars != null) {
-                mainActivity.onSettingsLoaded(radars);
+                _delegate.onSettingsLoaded(radars);
             }
             else {
-                mainActivity.onSettingsNotLoaded();
+                _delegate.onSettingsNotLoaded();
             }
         }
-
     }
 }
