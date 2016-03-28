@@ -3,6 +3,7 @@ package ru.sionyx.meteoradar.ViewModels;
 import android.accounts.Account;
 import android.accounts.AccountManager;
 
+import java.net.URLEncoder;
 import java.util.Calendar;
 import java.util.TimeZone;
 
@@ -10,11 +11,13 @@ import ru.sionyx.meteoradar.Radar;
 import ru.sionyx.meteoradar.hash;
 import ru.sionyx.meteoradar.tasks.DownloadSettingsTask;
 import ru.sionyx.meteoradar.tasks.DownloadSettingsTaskDelegate;
+import ru.sionyx.meteoradar.tasks.SendPromoCodeTask;
+import ru.sionyx.meteoradar.tasks.SendPromoCodeTaskDelegate;
 
 /**
  * Created by vadimbalasov on 24.03.16.
  */
-public class RadarsViewModel implements DownloadSettingsTaskDelegate {
+public class RadarsViewModel implements DownloadSettingsTaskDelegate, SendPromoCodeTaskDelegate {
     static RadarsViewModel _shared;
 
     public Radar[] radars;
@@ -46,8 +49,23 @@ public class RadarsViewModel implements DownloadSettingsTaskDelegate {
         downloadSettingsTask.execute(url);
     }
 
-    public void sendPromocode(String promocode) {
+    public void sendPromoCode(String promoCode) {
+        delegate.promoStartSending();
 
+        Account[] list = accountManager.getAccounts();
+        String accountHash = (list.length > 0) ? hash.sha1(list[0].name) : "unknown";
+
+        String encodedPromoCode;
+        try {
+            encodedPromoCode = URLEncoder.encode(promoCode, "utf-8");
+        }
+        catch (Exception e) {
+            encodedPromoCode = promoCode;
+        }
+        String url = String.format("http://meteo.bcr.by/input.php?hash=%s&promo=%s", accountHash, encodedPromoCode);
+
+        SendPromoCodeTask sendPromoCodeTask = new SendPromoCodeTask(this);
+        sendPromoCodeTask.execute(url);
     }
 
     //region DownloadSettingsTaskDelegate
@@ -59,6 +77,18 @@ public class RadarsViewModel implements DownloadSettingsTaskDelegate {
 
     public void onSettingsNotLoaded() {
         delegate.radarsNotLoaded("");
+    }
+
+    //endregion
+
+    //region SendPromoCodeTaskDelegate
+
+    public void promoCodeSent() {
+        delegate.promoSent();
+    }
+
+    public void promoCodeNotSent(String error) {
+        delegate.promoFailedToSend(error);
     }
 
     //endregion

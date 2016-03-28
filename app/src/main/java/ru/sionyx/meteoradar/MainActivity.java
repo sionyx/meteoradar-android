@@ -2,8 +2,10 @@ package ru.sionyx.meteoradar;
 
 
 import android.accounts.AccountManager;
+import android.app.AlertDialog;
 import android.app.ProgressDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.Matrix;
@@ -15,9 +17,11 @@ import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.text.Html;
+import android.text.InputType;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.EditText;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
@@ -115,29 +119,46 @@ public class MainActivity extends AppCompatActivity
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
 
+        menu.clear();
+
         if (RadarsViewModel.shared().radars != null) {
             for (int i = 0; i < RadarsViewModel.shared().radars.length; i++) {
                 menu.add(0, i, Menu.NONE, RadarsViewModel.shared().radars[i].desc);
             }
         }
 
+        menu.add(1, 100, Menu.NONE, R.string.menu_legend);
+        menu.add(1, 101, Menu.NONE, R.string.menu_promocode);
+
         return true;
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
+        int group = item.getGroupId();
         int index = item.getItemId();
 
-        if (RadarsViewModel.shared().radars != null && index < RadarsViewModel.shared().radars.length) {
-            Radar selectedRadar = RadarsViewModel.shared().radars[index];
-            if (selectedRadar == RadarsViewModel.shared().radar) {
-                return true;
-            }
+        if (group == 0) {
+            if (RadarsViewModel.shared().radars != null && index < RadarsViewModel.shared().radars.length) {
+                Radar selectedRadar = RadarsViewModel.shared().radars[index];
+                if (selectedRadar == RadarsViewModel.shared().radar) {
+                    return true;
+                }
 
-            MapsViewModel.shared().DropCache();
-            RadarsViewModel.shared().radar = selectedRadar;
-            SaveCurrentRadar(selectedRadar);
-            reloadImage(selectedRadar);
+                MapsViewModel.shared().DropCache();
+                RadarsViewModel.shared().radar = selectedRadar;
+                SaveCurrentRadar(selectedRadar);
+                reloadImage(selectedRadar);
+            }
+        }
+        else if (group == 1) {
+            switch (index) {
+                case 100:
+                    break;
+                case 101:
+                    showPromoCodeAlert();
+                    break;
+            }
         }
         return true;
     }
@@ -213,15 +234,27 @@ public class MainActivity extends AppCompatActivity
     }
 
     public void promoStartSending() {
-
+        String message = getResources().getString(R.string.promo_sending);
+        progressDialog.setMessage(message);
+        progressDialog.show();
     }
 
     public void promoSent() {
+        progressDialog.hide();
+        Snackbar.make(radarZoomable, R.string.promo_sent, Snackbar.LENGTH_LONG)
+                .setAction("Action", null).show();
 
+        // Перегружаем настройки
+        RadarsViewModel.shared().loadSettings();
     }
 
     public void promoFailedToSend(String error) {
+        String message = getResources().getString(R.string.promo_not_sent);
+        String text = String.format("%s: %s", message, error);
 
+        progressDialog.hide();
+        Snackbar.make(radarZoomable, text, Snackbar.LENGTH_LONG)
+                .setAction("Action", null).show();
     }
 
     //endregion
@@ -320,6 +353,30 @@ public class MainActivity extends AppCompatActivity
         SharedPreferences sharedPref = this.getPreferences(Context.MODE_PRIVATE);
         String code = sharedPref.getString(getString(R.string.saved_radar), "");
         return code;
+    }
+
+    private void showPromoCodeAlert() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(R.string.promo_title);
+
+        final EditText input = new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_TEXT);
+        builder.setView(input);
+
+        builder.setPositiveButton(R.string.promo_ok_btn, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                RadarsViewModel.shared().sendPromoCode(input.getText().toString());
+            }
+        });
+        builder.setNegativeButton(R.string.promo_cancel_btn, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                dialog.cancel();
+            }
+        });
+
+        builder.show();
     }
 }
 

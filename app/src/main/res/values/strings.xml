@@ -8,4 +8,12 @@
     <string name="radar_info_empty">Пустой список изображений</string>
     <string name="loading_radars">Загрузка списка радаров...</string>
     <string name="loading_map">Загрузка карты...</string>
+    <string name="menu_legend">Легенда</string>
+    <string name="menu_promocode">Промокод</string>
+    <string name="promo_title">Введите промокод</string>
+    <string name="promo_ok_btn">ОК</string>
+    <string name="promo_cancel_btn">Отмена</string>
+    <string name="promo_sending">Отправка промокода</string>
+    <string name="promo_sent">Промокод отправлен</string>
+    <string name="promo_not_sent">Ошибка отправки промокода</string>
 </resources>
