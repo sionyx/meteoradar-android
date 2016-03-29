@@ -31,10 +31,8 @@ public class MapsViewModel implements DownloadMapTaskDelegate, DownloadRadarInfo
     }
 
     public void loadMapImages(Radar radar) {
-        String link = String.format("http://meteo.bcr.by/req2.php?rad=%s", radar.code);
-
         DownloadRadarInfoTask downloadRadarInfoTask = new DownloadRadarInfoTask(this, radar);
-        downloadRadarInfoTask.execute(link);
+        downloadRadarInfoTask.execute(radar.infoUrl);
     }
 
     public void DropCache() {

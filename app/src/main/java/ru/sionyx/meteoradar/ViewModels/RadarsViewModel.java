@@ -8,17 +8,21 @@ import java.util.Calendar;
 import java.util.TimeZone;
 
 import ru.sionyx.meteoradar.Radar;
+import ru.sionyx.meteoradar.Urls;
 import ru.sionyx.meteoradar.hash;
 import ru.sionyx.meteoradar.tasks.DownloadSettingsTask;
 import ru.sionyx.meteoradar.tasks.DownloadSettingsTaskDelegate;
+import ru.sionyx.meteoradar.tasks.DownloadUrlsTask;
+import ru.sionyx.meteoradar.tasks.DownloadUrlsTaskDelegate;
 import ru.sionyx.meteoradar.tasks.SendPromoCodeTask;
 import ru.sionyx.meteoradar.tasks.SendPromoCodeTaskDelegate;
 
 /**
  * Created by vadimbalasov on 24.03.16.
  */
-public class RadarsViewModel implements DownloadSettingsTaskDelegate, SendPromoCodeTaskDelegate {
+public class RadarsViewModel implements DownloadUrlsTaskDelegate, DownloadSettingsTaskDelegate, SendPromoCodeTaskDelegate {
     static RadarsViewModel _shared;
+    Urls _urls;
 
     public Radar[] radars;
     public Radar radar;
@@ -33,6 +37,13 @@ public class RadarsViewModel implements DownloadSettingsTaskDelegate, SendPromoC
         return _shared;
     }
 
+    public void loadUrls() {
+        delegate.radarsStartLoading();
+
+        DownloadUrlsTask downloadUrlsTask = new DownloadUrlsTask(this);
+        downloadUrlsTask.execute("http://meteoradar.org/redirect.php");
+    }
+
     public void loadSettings() {
         delegate.radarsStartLoading();
 
@@ -43,7 +54,7 @@ public class RadarsViewModel implements DownloadSettingsTaskDelegate, SendPromoC
         String sign = String.format("meteo%02d%02d", calendar.get(Calendar.MONTH) + 1, calendar.get(Calendar.DAY_OF_MONTH));
         String signHash = hash.sha1(sign);
 
-        String url = String.format("http://meteo.bcr.by/auth.php?hash=%s&id=%s", accountHash, signHash);
+        String url = String.format("%s?hash=%s&id=%s", _urls.authUrl, accountHash, signHash);
 
         DownloadSettingsTask downloadSettingsTask = new DownloadSettingsTask(this);
         downloadSettingsTask.execute(url);
@@ -62,15 +73,33 @@ public class RadarsViewModel implements DownloadSettingsTaskDelegate, SendPromoC
         catch (Exception e) {
             encodedPromoCode = promoCode;
         }
-        String url = String.format("http://meteo.bcr.by/input.php?hash=%s&promo=%s", accountHash, encodedPromoCode);
+        String url = String.format("%s?hash=%s&promo=%s", _urls.promoCodeUrl, accountHash, encodedPromoCode);
 
         SendPromoCodeTask sendPromoCodeTask = new SendPromoCodeTask(this);
         sendPromoCodeTask.execute(url);
     }
 
+    //region DownloadUrlsTaskDelegate
+
+    public void urlsLoaded(Urls urls) {
+        _urls = urls;
+        loadSettings();
+    }
+
+    public void urlsNotLoaded(String error) {
+        delegate.radarsNotLoaded("");
+    }
+
+    //endregion
+
     //region DownloadSettingsTaskDelegate
 
     public void onSettingsLoaded(Radar[] radars) {
+
+        for (int i = 0; i < radars.length; i++) {
+            radars[i].infoUrl = String.format("%s?rad=%s", _urls.mapsUrl, radars[i].code);
+        }
+
         this.radars = radars;
         delegate.radarsLoaded(radars);
     }

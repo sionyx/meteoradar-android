@@ -102,7 +102,7 @@ public class MainActivity extends AppCompatActivity
 
         // Start
         if (RadarsViewModel.shared().radars == null) {
-            RadarsViewModel.shared().loadSettings();
+            RadarsViewModel.shared().loadUrls();
         }
         else if (MapsViewModel.shared().radarInfo == null) {
             reloadImage(RadarsViewModel.shared().radar);

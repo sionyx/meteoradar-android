@@ -7,4 +7,5 @@ public class Radar {
     public String code;
     public String desc;
     public String interval;
+    public String infoUrl;
 }
